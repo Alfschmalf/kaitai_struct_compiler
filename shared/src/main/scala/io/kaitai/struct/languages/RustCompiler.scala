@@ -269,6 +269,7 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   override def attrParseHybrid(leProc: () => Unit, beProc: () => Unit): Unit = {}
 
   override def condIfHeader(expr: Ast.expr): Unit = {
+    processEnums(collectExternalEnums(expr))
     out.puts(s"if ${expression(expr)} {")
     out.inc
   }
@@ -954,6 +955,44 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     ioName
   }
 
+  def collectExternalEnums(ast: Ast.expr): Set[EnumSpec] = {
+    val enums = scala.collection.mutable.Set[EnumSpec]()
+
+    def traverse(expr: Ast.expr): Unit = expr match {
+      case Ast.expr.EnumById(enumType, id, inType) =>
+        val enumSpec = typeProvider.resolveEnum(inType, enumType.name)
+        if (enumSpec.isExternal(typeProvider.nowClass)) {
+          enums.add(enumSpec)
+        }
+        traverse(id)
+
+      case Ast.expr.EnumByLabel(enumType, label, inType) =>
+        val enumSpec = typeProvider.resolveEnum(inType, enumType.name)
+        if (enumSpec.isExternal(typeProvider.nowClass)) {
+          enums.add(enumSpec)
+        }
+
+      case Ast.expr.Attribute(value, _) => traverse(value)
+      case Ast.expr.Subscript(value, idx) =>
+        traverse(value)
+        traverse(idx)
+      case Ast.expr.List(elts) => elts.foreach(traverse)
+      case Ast.expr.Compare(left, _, right) =>
+        traverse(left)
+        traverse(right)
+      case _ => // Ignore other cases
+    }
+
+    traverse(ast)
+    enums.toSet
+  }
+
+  def processEnums(enums: Set[EnumSpec]): Unit = {
+    enums.foreach(enumSpec => {
+      externalTypeDeclaration(ExternalEnum(enumSpec))
+    })
+  }
+
   def switchTypeEnum(id: Identifier, st: SwitchType): Unit = {
     // Because Rust can't handle `AnyType` in the type hierarchy,
     // we generate an enum with all possible variations
@@ -966,6 +1005,10 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.puts("#[derive(Debug, Clone)]")
     out.puts(s"pub enum $enum_typeName {")
     out.inc
+
+    val type_keys = st.cases.keys.toSet
+    val external_enums = type_keys.flatMap(collectExternalEnums)
+    processEnums(external_enums)
 
     val types = st.cases.values.toSet
 

@@ -679,7 +679,7 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   }
 
   override def handleAssignmentSimple(id: Identifier, expr: String): Unit = {
-    val seqId = translator.findMember(idToStr(id))
+    val seqId = translator.findMember(idToStr(id), typeProvider.nowClass)
     var done = false
     var refcell = false
     if (seqId.isDefined) {
@@ -702,7 +702,6 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       }
       if (refcell) {
           val typeName = kaitaiTypeToNativeType(Some(id), typeProvider.nowClass, idType)
-          out.puts(s"// $typeName ${typeProvider.nowClass} $idType $id")
           if (typeName.startsWith("Option<")) {
             out.puts(s"*${RustCompiler.privateMemberName(id, writeAccess = true)} = Some($expr);")
           } else {

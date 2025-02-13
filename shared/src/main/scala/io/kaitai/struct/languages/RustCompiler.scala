@@ -702,7 +702,7 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       }
       if (refcell) {
           val typeName = kaitaiTypeToNativeType(Some(id), typeProvider.nowClass, idType)
-          if (typeName.startsWith("Option<") or typeName.startsWith("OptRc<")) {
+          if (typeName.startsWith("Option<") || typeName.startsWith("OptRc<")) {
             out.puts(s"*${RustCompiler.privateMemberName(id, writeAccess = true)} = Some($expr);")
           } else {
             out.puts(s"*${RustCompiler.privateMemberName(id, writeAccess = true)} = $expr;")

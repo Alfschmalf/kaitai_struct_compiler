@@ -386,13 +386,15 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       case ProcessCustom(name, args) =>
         val procClass = name.map(x => type2class(x)).mkString("::")
         val procName = s"_process_${idToStr(varSrc)}"
+        val argsName = s"_process_${idToStr(varSrc)}_args"
 
         val mod_name = name.last
         importList.add(s"use crate::$mod_name::*;")
 
         val argList = translate_args(args, into = false)
         val argListInParens = s"($argList)"
-        out.puts(s"let $procName = $procClass::new$argListInParens;")
+        out.puts(s"let $argsName = $argListInParens;")
+        out.puts(s"let $procName = $procClass::new($argsName);")
         s"$procName.decode(&$srcExpr).map_err(|msg| KError::BytesDecodingError { msg })?"
     }
     handleAssignment(varDest, expr, rep, isRaw = false)
